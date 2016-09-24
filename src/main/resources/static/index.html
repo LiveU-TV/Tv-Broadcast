@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>LiveU TV Broadcast News Room</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="bootstrap.css" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" type="text/css" media="screen">
+<script src="bower_components/adapter.js/adapter.js"></script>
+<script src="js/kurento-utils.js"></script>
+<script src="js/participant.js"></script>
+<script src="js/nextvideo.js"></script>
+<script src="js/livevideo.js"></script>
+<script src="js/central.js"></script>
+<script src="js/ws.js"></script>
+<script src="js/first.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAZ3R112_IV7fVHmShVkv9YM8F01f0Aqs4"> </script>
+<!--  async defer  -->
+
+<style type="text/css">
+body {
+	padding-top: 8px;
+	padding-bottom: 8px;
+}
+
+.glass-panel {
+	z-index: 90;
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	top: 0;
+	left: 0;
+	opacity: 0.8;
+	background-color: Gray;
+}
+
+.div-modal {
+	z-index: 100;
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 350px;
+	height: 240px;
+	-moz-transition-property: left top;
+	-o-transition-property: left top;
+	-webkit-transition-duration: 200ms;
+	-moz-transition-duration: 200ms;
+	-o-transition-duration: 200ms;
+}
+
+.static-room {
+	position:relative;
+	width: 260px;
+	height: 90px;
+	float: left;
+	margin: 10px;
+	color: white;
+	border: 4px solid gray;
+	padding: 10px;
+}
+
+.static-room-active { .static-room;
+	border: 4px solid #73AD21;
+}
+
+/* .static-room input[type=button] { */
+.button-room {
+	position: absolute;
+	bottom: 10px;
+	right: 110px;
+	display: none;
+	width: 35px !important;
+	height: 18px !important;
+}
+
+.static-room h3 {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+}
+
+.local-section {
+	padding: 10px;
+	padding: 10px;
+	color: MediumBlue;
+}
+
+.button-room-OLD {
+	width: 35px !important;
+	height: 18px !important;
+	margin-top: 20px !important;
+	margin: 0 auto;
+	display: none;
+}
+
+/*
+.static-room:hover .button-room {
+	display: block;
+}
+
+.participants-table tr:first-child {
+	background: BurlyWood;
+}
+*/
+
+.user {
+	position: relative;
+	border-radius: 4px;
+	/* border: 2px groove; */
+	margin-left: 5;
+	margin-right: 5;
+	width: 170px;
+	text-align: center;
+	overflow: hide;
+	float: left;
+	padding: 10px;
+	border-radius: 10px;
+	-webkit-box-shadow: 0 0 200px rgba(255, 255, 255, 0.5), 0 1px 2px
+		rgba(0, 0, 0, 0.3);
+	box-shadow: 0 0 200px rgba(255, 255, 255, 0.5), 0 1px 2px
+		rgba(0, 0, 0, 0.3);
+	/*Transition*/
+	-webkit-transition: all 0.3s linear;
+	-moz-transition: all 0.3s linear;
+	-o-transition: all 0.3s linear;
+	transition: all 0.3s linear;
+	border: 4px solid White;
+	/* background: White; */
+}
+
+.user video, .user.main video {
+	width: 165px; ! important;
+	height: auto; ! important;
+}
+
+.user span {
+	position: relative;
+	color: #005BA0;
+}
+
+
+.user-video-button {
+	position: absolute;
+	bottom: 28px;
+	left: 60px;
+	display: none;
+	width: 20px !important;
+	height: 18px !important;
+}
+
+.user.me {
+	background-color: White;
+}
+
+.user.selected {
+	border: 4px solid #FF7BB4;
+}
+
+.user.me span {
+	position: relative;
+	color: "White";
+}
+
+.user.main video {
+	height: auto;
+}
+
+.user-video-next {
+	position: relative;
+	border-radius: 4px;
+	/* border: 2px groove; */
+	margin-left: 5;
+	margin-right: 5;
+	width: 100%;
+	text-align: center;
+	overflow: hide;
+	float: left;
+	padding: 10px;
+	border-radius: 10px;
+	-webkit-box-shadow: 0 0 200px rgba(255, 255, 255, 0.5), 0 1px 2px
+		rgba(0, 0, 0, 0.3);
+	box-shadow: 0 0 200px rgba(255, 255, 255, 0.5), 0 1px 2px
+		rgba(0, 0, 0, 0.3);
+	/*Transition*/
+	-webkit-transition: all 0.3s linear;
+	-moz-transition: all 0.3s linear;
+	-o-transition: all 0.3s linear;
+	transition: all 0.3s linear;
+	/* background: White; */
+}
+
+.user-video-next video {
+	width: 98%; ! important;
+	height: auto; ! important;
+}
+
+.user-video-next span {
+	position: relative;
+	color: #005BA0;
+}
+
+.live {
+	position: relative;
+	border-radius: 4px;
+	/* border: 2px groove; */
+	margin-left: 5;
+	margin-right: 5;
+	text-align: center;
+	overflow: hide;
+	float: left;
+	width: 110px;
+	padding: 10px;
+	border-radius: 10px;
+	-webkit-box-shadow: 0 0 200px rgba(255, 255, 255, 0.5), 0 1px 2px
+		rgba(0, 0, 0, 0.3);
+	box-shadow: 0 0 200px rgba(255, 255, 255, 0.5), 0 1px 2px
+		rgba(0, 0, 0, 0.3);
+	/*Transition*/
+	-webkit-transition: all 0.3s linear;
+	-moz-transition: all 0.3s linear;
+	-o-transition: all 0.3s linear;
+	transition: all 0.3s linear;
+	border: 4px solid White;
+	/* background: White; */
+}
+
+.live video {
+	width: 105px; ! important;
+	height: auto; ! important;
+}
+
+.live span {
+	position: relative;
+	color: #005BA0;
+}
+
+.live.me {
+	width: 260px; ! important;
+	background-color: White;
+}
+
+.live.me span {
+	position: relative;
+	color: "White";
+}
+
+.live.me video {
+	width: 255px; ! important;
+	height: auto; ! important;
+}
+
+#chat_box {
+	width: 90%;
+	height: 300px;
+	overflow: auto;
+	border: 2px solid MediumBlue;
+	background: #FFEFD5;
+}
+
+#chat_input {
+	width: 70%;
+	border: 2px solid Green;
+}
+	
+</style>
+</head>
+
+
+<body onload="initFirst()">
+
+	<div class="navbar-fixed-top" style="background-color: white">
+		<table style="width: 100%">
+			<tr style="border-bottom: 2px solid #005BA0">
+				<td width="15%"></td>
+				<td align="center"><img src="img/logo.png"></td>
+				<td width="15%"><h4 style="color: #005BA0" id="statusLogin">not
+						logged!</h4></td>
+			</tr>
+		</table>
+	</div>
+
+	<div id="main_area">
+		<!-- page 0 at load -->
+		<div id="page_0" style="width: 100%; height: 2000px;"></div>
+		<!-- EOF page at load -->
+
+		<!-- page 1 -->
+		<div id="page_1" style="padding-top: 55px; margin-left: 10px;">
+			<div id="button_panel" style="padding: 10px; margin-left: 50px">
+				<table>
+					<tr>
+						<td><input id="btnLogin" type="button" value="Login"
+							onclick="showLoginPanel()"></td>
+						<td><input id="btnCreateRoom" style="margin-left: 20px"
+							type="button" value="Create Room" onclick="showCreateRoomPanel()"></td>
+					</tr>
+				</table>
+			</div>
+
+			<h3 class="local-section">Current News Rooms</h3>
+			<div id="roomList" class="containter" style="width: 100%"></div>
+
+			<div style="padding-top: 20px; clear: left">
+				<table style="width: 100%">
+					<tr style="border-bottom: 2px solid #005BA0">
+						<td></td>
+					</tr>
+				</table>
+			</div>
+
+			<div>
+				<h3 class="local-section">Recent users</h3>
+				<ul>
+					<li><img src="img/img_avatar2.png"
+						style="width: 35px; margin: 10px"><b>John</b></li>
+					<li><img src="img/img_avatar5.png"
+						style="width: 35px; margin: 10px"><b>Bella</b></li>
+					<li><img src="img/img_avatar6.png"
+						style="width: 35px; margin: 10px"><b>James</b></li>
+				</ul>
+			</div>
+
+			<div style="padding-top: 20px; clear: left">
+				<table style="width: 100%">
+					<tr style="border-bottom: 2px solid #005BA0">
+						<td></td>
+					</tr>
+				</table>
+			</div>
+
+		</div>
+		<!-- EOF page 1 -->
+
+
+		<!-- page 2 -->
+		<div id="page_2" style="padding-top: 55px; width: 100%; height: 100%">
+
+			<div id="panel_room_header" style="padding: 10px; margin-left: 50px">
+				<div style="float: left; width: 90%">
+					<h3 align="center" class="local-section" id="room-header">no
+						active room!</h3>
+				</div>
+				<div style="float: clear;">
+					<input id="btnRoomList" type="button" Value="Leave Room"
+						onclick="showRoomListPage()">
+				</div>
+			</div>
+
+			<div id="panel_video" style="float: left; width: 60%">
+
+				<div id="panel_rooms"
+					style="min-height: 300px; overflow: auto;">
+					<h4 class="local-section" align="center">Participants</h4>
+					<div id="participants" class="participants-table"></div>
+				</div>
+
+				<div id="panel_video_next"
+					style="float: left; min-height: 200px; width: 45%;">
+					<h4 class="local-section" align="center">Next translation</h4>
+						<div id="video_next"></div>
+						<input id="btnStartLive" type="button" value="Start Live!" style="margin: 15px;"
+							onclick="clickStartLive()">
+				</div>
+
+				<div id="panel_video_live"
+					style="float: left; min-height: 200px; width: 45%; margin-left: 20px">
+					<h4 class="local-section" align="center">Live</h4>
+					<div  class="user-video-next">
+					<iframe width="100%"
+						src="https://www.youtube.com/embed/mM5_T-F1Yn4" frameborder="0"
+						allowfullscreen></iframe>
+						</div>
+				</div>
+
+			</div>
+
+			<div id="panel_chat_map"
+				style="float: left; width: 40%; min-height: 500px">
+				<div id="panel_map" style="width: 90%; min-height: 200px; padding-left: 20px; margin: 20px;"></div>
+
+				<div id="panel_chat" style="width: 100%; min-height: 200px; padding-left: 20px;">
+					<h4 class="local-section" align="center">Chat</h4>
+					<pre id="chat_box"></pre>
+					<textarea id="chat_input" rows="2" cols="120"></textarea>
+					<input type="button" style="margin: 15px;" value="Send" onclick="clickSendChatMessage()">			
+				
+				</div>
+
+			</div>
+
+			<div style="padding-top: 20px; clear: left">
+				<table style="width: 100%">
+					<tr style="border-bottom: 2px solid #005BA0">
+						<td></td>
+					</tr>
+				</table>
+			</div>
+			
+		</div>
+		<!-- EOF page 2 -->
+		
+		<!--  page 3 -->
+		<div id="page_3" style="padding-top: 55px; width: 100%; height: 100%; display: none;">
+
+			<div id="panel_tr_header" style="padding: 10px; margin-left: 50px">
+				<h3 align="center" class="local-section" id="room-tr-header"></h3>
+			</div>
+			
+			<div id="panel_translation" style="float: left; width: 100%">
+				<div id="lives"></div>
+				<div id="central"></div>
+			</div>
+			<div id="panel_tr_btn" style="position: relative; float: left; width: 100%;">
+				<input id="btnBackRoom" style="position: relative; margin: 20px;" type="button" Value="Back to room" onclick="backRoomPage()">
+				<input id="btnConnectCentral" style="position: relative; margin: 20px;" type="button" Value="Connect to Central" onclick="connectCentral()">
+			</div>
+			
+		</div>
+		<!--  EOF page 3 -->
+			
+		
+	</div>
+	<!-- EOF main_area -->
+
+	<!-- Footer -->
+	<div id="main_footer">
+		<h4 class="local-section" align="center">Copyright &copy; 2016
+			LiveU</h4>
+	</div>
+	<!-- EOF Footer -->
+
+
+	<!-- modal panel section -->
+	<!-- login panel -->
+	<div id="loginPanel" class="div-modal" style="visibility: hidden">
+		<form onsubmit="clickLoginPanel(); return false;"
+			accept-charset="UTF-8">
+			<table>
+				<tr>
+					<td></td>
+					<td align="center"><h1>Please, login</h1></td>
+				</tr>
+
+				<tr>
+					<td><h3>Login:</h3></td>
+					<td><input id="login" type="text" name="login" value=""
+						placeholder="Login" required></td>
+				</tr>
+
+				<tr>
+					<td><h3>Password:</h3></td>
+					<td><input id="password" type="password" name="password"
+						value="" placeholder="Password"></td>
+				</tr>
+				<tr>
+					<td></td>
+					<td align="center"><input type="submit"
+						class="btn btn-success" style="margin: 20px" value="OK"> <input
+						type="button" class="btn btn-danger" style="margin: 10px"
+						value="Cancel" onclick="cancelLoginPanel()"></td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+	<!-- create new room panel -->
+	<div id="create_room" class="div-modal" style="visibility: hidden">
+		<form onsubmit="clickCreateRoom(); return false;"
+			accept-charset="UTF-8">
+			<table>
+				<tr>
+					<td></td>
+					<td align="center"><h1>Create a New Room</h1></td>
+				</tr>
+				<tr>
+					<td><h3>Room:</h3></td>
+					<td><input id="newRoomName" type="text" name="newRoomName"
+						value="" placeholder="Room" required></td>
+				</tr>
+				<tr>
+					<td><h3>Description:</h3></td>
+					<td><input id="newRoomDescr" type="text" name="newRoomDescr"
+						value="" placeholder="Description"></td>
+				</tr>
+				<tr>
+					<td></td>
+					<td align="center"><input type="submit"
+						class="btn btn-success" style="margin: 20px" value="OK"> <input
+						type="button" class="btn btn-danger" style="margin: 10px"
+						value="Cancel" onclick="cancelCreateRoom()"></td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+
+	<!-- glass panel -->
+	<div id="glassPanel" class="glass-panel" style="visibility: hidden"></div>
+
+	</div>
+
+</body>
+</html>
