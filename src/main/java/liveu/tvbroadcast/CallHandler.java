@@ -63,13 +63,12 @@ public class CallHandler extends TextWebSocketHandler
 		ds.funcs(2, "CallHandler::handleTextMessage");
 		
 		final JsonObject jsonMessage = gson.fromJson(message.getPayload(), JsonObject.class);
-
 		UserSession user = registry.getBySession(session);
 
 		if (user != null) {
-			log.info("{}: incoming message: {}", user, jsonMessage);
+			log.debug("{}: incoming message: {}", user, jsonMessage);
 		} else {
-			log.info("Incoming message from new user: {}", jsonMessage);
+			log.debug("Incoming message from new user: {}", jsonMessage);
 			user = new UserSession(session);
 			registry.register(user);
 		}
@@ -162,7 +161,7 @@ public class CallHandler extends TextWebSocketHandler
 		default:
 			break;
 		}
-		log.info("Message handled: {}", jsonMessage);
+		log.debug("Message handled: {}", jsonMessage);
 		ds.funce(2, "CallHandler::handleTextMessage");
 	}
 
@@ -181,7 +180,7 @@ public class CallHandler extends TextWebSocketHandler
 		UserSession u = registry.getByName(login);
 		
 		if (u != null) {
-			log.info("{}: already logged!", u);
+			log.warn("{}: already logged!", u);
 			ds.warning("User '%s' already logged", login);
 			JsonObject msg = new JsonObject();
 			msg.addProperty("id", "login");
@@ -210,7 +209,7 @@ public class CallHandler extends TextWebSocketHandler
 		msg.addProperty("result", "OK");
 		msg.addProperty("message", "OK");
 		user.sendMessage(msg);
-		log.info("{}: LOGGED IN!");
+		log.info("{}: LOGGED IN!", user);
 		return;
 	}
 	
@@ -450,7 +449,7 @@ public class CallHandler extends TextWebSocketHandler
 			try {
 				u.sendMessage(msg);
 			} catch (final IOException e) {
-				log.debug("session with user {} could not be notified", u, e);
+				log.error("session with user {} could not be notified", u, e);
 			}
 		}
 	}
@@ -473,7 +472,7 @@ public class CallHandler extends TextWebSocketHandler
 		Room room = roomManager.getRoom(roomName);
 		if (null != room) {
 			/* already exist */
-			log.info("room {} already exist!", roomName);
+			log.warn("room {} already exist!", roomName);
 			user.sendError("room already exist: " + roomName);
 			return;
 		}

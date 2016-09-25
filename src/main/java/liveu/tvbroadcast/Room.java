@@ -129,7 +129,7 @@ public class Room implements Closeable {
 	}
 
 	public void leave(UserSession user) throws IOException {
-		log.debug("{}: Leaving room {}", this, user);
+		log.info("{}: {} leaving room", this, user);
 		ds.print("Leave room: room=%s, user=%s", this.name, user.getName());
 		removeParticipant(user);
 		user.setRoom(null);
@@ -143,26 +143,19 @@ public class Room implements Closeable {
 	 * 	
 	 */
 	public void startLive(Room target) throws IOException {
-		log.info("{}: starting LIVE in {} with {}", this, target, selectedParticipant);
+		log.info("{}: starting LIVE in room {} with {}", this, target, selectedParticipant);
 		if (selectedParticipant == null) {
-			log.error("{}: could not start live without selected participant!", this);
+			log.error("{}: could not start live without selected participant", this);
 			return;
 		}
-		
 		liveParticipant = selectedParticipant;
+		
+		if (target == null) {
+			log.error("{}: could not start live with target room null", this);
+			return;
+		}
 		liveRoom = target;
-		
-		// notify room target users (operators or admins...)
-		JsonObject msg = new JsonObject();
-		msg.addProperty("id", "newParticipantArrived");
-		msg.addProperty("name", liveParticipant.getName());
-		msg.addProperty("geox", liveParticipant.getGeoX());
-		msg.addProperty("geoy", liveParticipant.getGeoY());
-
-		log.debug("{}: notifying {} participants of live participant {}", this, selectedParticipant);
-		target.sendMessage(msg);
-
-		
+			
 		// send target room users (operators or admins...) to selected user going on live
 		final JsonArray participantsArray = new JsonArray();
 		for (final UserSession participant : target.getParticipants()) {
@@ -173,11 +166,22 @@ public class Room implements Closeable {
 			participantsArray.add(r);
 		}
 
-		msg = new JsonObject();
+		JsonObject msg = new JsonObject();
 		msg.addProperty("id", "makeLive");
 		msg.add("data", participantsArray);
 		log.debug("{} sending a list of {} live participants", liveParticipant, participantsArray.size());
 		liveParticipant.sendMessage(msg);
+		
+		// notify room target users (operators or admins...)
+		msg = new JsonObject();
+		msg.addProperty("id", "newParticipantArrived");
+		msg.addProperty("name", liveParticipant.getName());
+		msg.addProperty("geox", liveParticipant.getGeoX());
+		msg.addProperty("geoy", liveParticipant.getGeoY());
+
+		log.info("{}: notifying {} participants of live participant {}", this, participantsArray, selectedParticipant);
+		target.sendMessage(msg);
+
 		return;		
 	}
 	
@@ -188,6 +192,7 @@ public class Room implements Closeable {
 	public void stopLive() throws IOException {
 		log.info("{}: stoping LIVE in {} with {}", this, liveRoom, liveParticipant);
 		liveRoom.removeParticipant(liveParticipant);
+		liveParticipant.releaseLiveIncoming();
 		liveRoom = null;
 	}
 	
@@ -270,7 +275,7 @@ public class Room implements Closeable {
 			try {
 				participant.sendMessage(message);
 			} catch (final IOException e) {
-				log.debug("{}: {} could not be notified", this, participant, e);
+				log.error("{}: {} could not be notified", this, participant, e);
 			}
 			participantsList.add(participant.getName());
 		}
@@ -292,7 +297,7 @@ public class Room implements Closeable {
 		msg.addProperty("geox", newParticipant.getGeoX());
 		msg.addProperty("geoy", newParticipant.getGeoY());
 
-		log.debug("{}: notifying other participants of new participant {}", this, newParticipant);
+		log.info("{}: notifying other participants of new participant {}", this, newParticipant);
 		return sendMessage(msg);
 	}
 
@@ -302,7 +307,7 @@ public class Room implements Closeable {
 
 		participants.remove(name);
 
-		log.debug("{}: notifying all users that {} is leaving the room", this, user);
+		log.info("{}: notifying all users that {} is leaving the room", this, user);
 
 		final List<String> unnotifiedParticipants = new ArrayList<>();
 		final JsonObject msg = new JsonObject();
@@ -318,7 +323,7 @@ public class Room implements Closeable {
 		}
 
 		if (!unnotifiedParticipants.isEmpty()) {
-			log.debug("{}: The users {} could not be notified that {} left the room", this,
+			log.error("{}: The users {} could not be notified that {} left the room", this,
 					unnotifiedParticipants, name);
 
 			ds.print("ROOM %s: The users %s could not be notified that %s left the room", this.name,
@@ -346,7 +351,7 @@ public class Room implements Closeable {
 		if (selectedParticipant != null) {
 			msg.addProperty("selected", selectedParticipant.getName());
 		}
-		log.debug("{} sending a list of {} participants", user, participantsArray.size());
+		log.info("{} sending a list of {} participants", user, participantsArray.size());
 		user.sendMessage(msg);
 	}
 
@@ -369,7 +374,7 @@ public class Room implements Closeable {
 	
 	public boolean setSelectedParicipant(UserSession user) {
 		if (!participants.containsKey(user.getName())) {
-			log.error("no such participant {}!", user);
+			log.error("{}: no such participant {}!", this, user);
 			return false;
 		}
 		
@@ -399,17 +404,18 @@ public class Room implements Closeable {
 			try {
 				user.close();
 			} catch (IOException e) {
-				log.debug("{}: Could not invoke close on participant {}", this, user, e);
+				log.error("{}: Could not invoke close on participant {}", this, user, e);
 			}
 		}
 
 		participants.clear();
 
+		/* pipeline is global!
 		pipeline.release(new Continuation<Void>() {
 
 			@Override
 			public void onSuccess(Void result) throws Exception {
-				log.trace("{}: released pipeline", this);
+				log.info("{}: released pipeline", this);
 			}
 
 			@Override
@@ -417,8 +423,9 @@ public class Room implements Closeable {
 				log.warn("{}: could not release Pipeline", this);
 			}
 		});
+		*/
 
-		log.debug("{}: closed", this);
+		log.info("{}: closed", this);
 	}
 
 }

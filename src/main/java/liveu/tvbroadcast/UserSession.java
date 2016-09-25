@@ -54,6 +54,7 @@ public class UserSession implements Closeable {
 
 	private Room room;
 	private WebRtcEndpoint outgoingMedia;
+	private WebRtcEndpoint outgoingLiveMedia;
 	private WebRtcEndpoint nextVideoMedia; // media 4 preview (next video)
 	
 	private RtpEndpoint outgoingCentralMedia; // outgoing video to central
@@ -80,6 +81,7 @@ public class UserSession implements Closeable {
 		this.pipeline = p;
 
 		createOutgoingMedia();
+		createOutgoingLiveMedia();
 		createNextVideoMedia();
 	}
 	
@@ -96,7 +98,7 @@ public class UserSession implements Closeable {
 		this.outgoingMedia = new WebRtcEndpoint.Builder(pipeline).build();
 
 		this.outgoingMedia.addOnIceCandidateListener(new EventListener<OnIceCandidateEvent>() {
-
+			
 			@Override
 			public void onEvent(OnIceCandidateEvent event) {
 				JsonObject response = new JsonObject();
@@ -108,13 +110,40 @@ public class UserSession implements Closeable {
 						session.sendMessage(new TextMessage(response.toString()));
 					}
 				} catch (IOException e) {
-					log.debug(e.getMessage());
+					log.error("{}: {}", this, e.getMessage());
 				}
 			}
 		});
 	}
 
 	
+	
+	/*
+	 * create outgoing media 4 live, bind ice candidates handler
+	 */
+	private void createOutgoingLiveMedia() {
+		this.outgoingLiveMedia = new WebRtcEndpoint.Builder(pipeline).build();
+
+		this.outgoingLiveMedia.addOnIceCandidateListener(new EventListener<OnIceCandidateEvent>() {
+			
+			@Override
+			public void onEvent(OnIceCandidateEvent event) {
+				JsonObject response = new JsonObject();
+				response.addProperty("id", "iceCandidate4Live");
+				response.addProperty("name", name);
+				response.add("candidate", JsonUtils.toJsonObject(event.getCandidate()));
+				try {
+					synchronized (session) {
+						session.sendMessage(new TextMessage(response.toString()));
+					}
+				} catch (IOException e) {
+					log.error("{}: {}", this, e.getMessage());
+				}
+			}
+		});
+	}
+
+
 	/*
 	 * create selected participant media, bind ice candidates handler
 	 */
@@ -134,7 +163,7 @@ public class UserSession implements Closeable {
 						session.sendMessage(new TextMessage(response.toString()));
 					}
 				} catch (IOException e) {
-					log.debug(e.getMessage());
+					log.error("{}: {}", this, e.getMessage());
 				}
 			}
 		});
@@ -143,6 +172,10 @@ public class UserSession implements Closeable {
 
 	public WebRtcEndpoint getOutgoingWebRtcPeer() {
 		return outgoingMedia;
+	}
+	
+	public WebRtcEndpoint getOutgoingLiveWebRtcPeer() {
+		return outgoingLiveMedia;
 	}
 	
 	public WebRtcEndpoint getNextVideoWebRtcPeer() {
@@ -217,47 +250,50 @@ public class UserSession implements Closeable {
 	
 	/* handle video request on preview video */
 	public void processSdp4NextVideo(String sdpOffer) throws IOException {
-		log.trace("{}: SdpOffer selected paticipant video {}", this, sdpOffer);
-		ds.print("User '%s' requesting selected participant video in room '%s'", this, room.getName());
+		log.info("{}: selected paticipant video SDP offer: {}", this, sdpOffer);
+		//ds.print("User '%s' requesting selected participant video in room '%s'", this, room.getName());
 
 		final String ipSdpAnswer = nextVideoMedia.processOffer(sdpOffer);
 		final JsonObject m = new JsonObject();
 		m.addProperty("id", "sdpAnswer4NextVideo");
 		m.addProperty("sdpAnswer", ipSdpAnswer);
 
-		log.trace("{}: SdpAnswer for selected paticipant video is {}", this, ipSdpAnswer);
-		ds.print("User '%s': SDP answer for sender selected paticipant video is: %s", this.name, ipSdpAnswer);
-		this.sendMessage(m);
-		log.debug("{}: gather candidates 4 next video", this);
+		log.info("{}: selected paticipant video SDP answer: {}", this, ipSdpAnswer);
+		//ds.print("User '%s': SDP answer for sender selected paticipant video is: %s", this.name, ipSdpAnswer);
+		sendMessage(m);
 		nextVideoMedia.gatherCandidates();
 	}
 
 	
 	/* handle video request on live video */
 	public void processSdp4Live(UserSession sender, String sdpOffer) throws IOException {
-		log.info("{}: connecting LIVE with {} in room {}", this, sender, room.getName());
-		log.info("{}: SdpOffer LIVE video for {} is {}", this, sender, sdpOffer);
+		log.info("{}: live video for {} SDP offer: {}", this, sender, sdpOffer);
 		//ds.print("User '%s' requesting LIVE video in room '%s'", this, room.getName());
 		
 		WebRtcEndpoint ep = getLiveEndpointForUser(sender);
-		if (ep == outgoingMedia) {			
-			// do nothing with outgoing, already connected
-			return;
+		String sdpAnswer = ep.processOffer(sdpOffer);
+		log.info("{}: live video for {} SDP answer: {}", this, sender, sdpAnswer);
+	
+		if (ep == outgoingLiveMedia) { // don't connect myself ??? are we need this?
+			log.info("{}: loopback LIVE VIDEO with {}", this, sender);
+		} else {
+			try {
+				log.info("{}: LIVE VIDEO CONNECT {} -> {}", this, sender, this);
+				sender.getOutgoingWebRtcPeer().connect(ep);
+				//getOutgoingWebRtcPeer().connect(ep);		
+			} catch (KurentoServerException ex) {
+				log.error("{}: error on LIVE VIDEO CONNECT from {}: {}", this, sender, ex);
+				return;
+			}
 		}
 		
-		String ipSdpAnswer = ep.processOffer(sdpOffer);
-		sender.getOutgoingWebRtcPeer().connect(ep);
-		ep.gatherCandidates();
-		log.debug("{}: gather candidates 4 live video", this);
 		
 		final JsonObject m = new JsonObject();
 		m.addProperty("id", "sdpAnswer4Live");
 		m.addProperty("name", sender.getName());
-		m.addProperty("sdpAnswer", ipSdpAnswer);
-
-		log.info("{}: SdpAnswer for LIVE for {} is {}", this, sender, ipSdpAnswer);
-		//ds.print("User '%s': SDP answer for sender %s LIVE is: %s", this, sender, ipSdpAnswer);
+		m.addProperty("sdpAnswer", sdpAnswer);
 		sendMessage(m);
+		ep.gatherCandidates();
 	}
 
 	
@@ -265,27 +301,36 @@ public class UserSession implements Closeable {
 	 * some participant wants video from as
 	 * */
 	public void receiveVideoFrom(UserSession sender, String sdpOffer) throws IOException {
-		log.info("{}: connecting with {} in room {}", this, sender, room.getName());
-		log.trace("{}: SdpOffer for {} is {}", this, sender, sdpOffer);
+		log.info("{}: video for {} SDP offer: {}", this, sender, sdpOffer);
 		ds.print("User '%s' connecting with '%s' in room '%s'", this.name, sender.getName(), room.getName());
 
 		WebRtcEndpoint ep = getEndpointForUser(sender);
-		final String ipSdpAnswer =	ep.processOffer(sdpOffer);
-		if (ep != outgoingMedia) { // don't connect myself ??? are we need this?			
-			sender.getOutgoingWebRtcPeer().connect(ep);
+		final String sdpAnswer =	ep.processOffer(sdpOffer);
+		log.info("{}: video for {} SDP answer: {}", this, sender, sdpAnswer);
+		
+		if (ep == outgoingMedia) { // don't connect myself ??? are we need this?
+			log.info("{}: loopback VIDEO with {}", this, sender);
+		} else {
+			try {
+				log.info("{}: VIDEO CONNECT {} -> {}", this, sender, this);
+				sender.getOutgoingWebRtcPeer().connect(ep);
+				//getOutgoingWebRtcPeer().connect(ep);		
+			} catch (KurentoServerException ex) {
+				log.error("{}: error on VIDEO CONNECT from {}: {}", this, sender, ex);
+				return;
+			}
 		}
-		ep.gatherCandidates();
-		log.debug("{}: gather candidates", this);
+		
 		
 		final JsonObject msg = new JsonObject();
 		msg.addProperty("id", "receiveVideoAnswer");
 		msg.addProperty("name", sender.getName());
-		msg.addProperty("sdpAnswer", ipSdpAnswer);
+		msg.addProperty("sdpAnswer", sdpAnswer);
 
-		log.trace("{}: SdpAnswer for {} is {}", this, sender, ipSdpAnswer);
-		ds.print("User '%s': SDP answer for sender '%s' is: %s", this, sender, ipSdpAnswer);
+		ds.print("User '%s': SDP answer for sender '%s' is: %s", this, sender, sdpAnswer);
 		sendMessage(msg);
-		// moved higher getEndpointForUser(sender).gatherCandidates();
+		// moved higher, returned back: getEndpointForUser(sender).gatherCandidates();
+		ep.gatherCandidates();
 	}
 
 	
@@ -294,17 +339,16 @@ public class UserSession implements Closeable {
 	 */
 	private WebRtcEndpoint getEndpointForUser(final UserSession sender) {
 		if (sender.getName().equals(name)) {
-			log.debug("{}: configuring loopback", this);
-			ds.warning("User '%s' configuring loopback", this);
+			log.debug("{}: EP configuring loopback", this);
 			return outgoingMedia;
 		}
 
-		log.debug("{}: receiving video from {}", this, sender);
+		log.info("{}: EP request for video from {}", this, sender);
 		ds.print("User '%s': receiving video from: %s", this.name, sender.getName());
 
 		WebRtcEndpoint incoming = incomingMedia.get(sender.getName());
 		if (incoming == null) {
-			log.debug("{}: creating new endpoint for {}", this, sender);
+			log.info("{}: EP creating new for {}", this, sender);
 			ds.print(2, "new WebRtcEndpoint");
 			incoming = new WebRtcEndpoint.Builder(pipeline).build();
 
@@ -320,7 +364,7 @@ public class UserSession implements Closeable {
 							session.sendMessage(new TextMessage(response.toString()));
 						}
 					} catch (IOException e) {
-						log.debug(e.getMessage());
+						log.error("{}: {}", this, e.getMessage());
 					}
 				}
 			});
@@ -328,7 +372,7 @@ public class UserSession implements Closeable {
 			incomingMedia.put(sender.getName(), incoming);
 		}
 
-		log.debug("{}: obtained endpoint for {}", this, sender);
+		log.info("{}: EP success for {}", this, sender);
 //		sender.getOutgoingWebRtcPeer().connect(incoming);
 
 		return incoming;
@@ -340,17 +384,17 @@ public class UserSession implements Closeable {
 	 */
 	private WebRtcEndpoint getLiveEndpointForUser(final UserSession sender) {
 		if (sender.getName().equals(name)) {
-			log.debug("{}: configuring loopback for live", this);
+			log.info("{}: EP live configuring loopback", this);
 			ds.warning("User '%s' configuring loopback for live", this);
-			return outgoingMedia;
+			return outgoingLiveMedia;
 		}
 
-		log.debug("{}: receiving video for live from {}", this, sender);
+		log.info("{}: EP request live video for {}", this, sender);
 		ds.print("User '%s': receiving video for live from: %s", this.name, sender.getName());
 
 		WebRtcEndpoint incoming = incomingLiveMedia.get(sender.getName());
 		if (incoming == null) {
-			log.debug("{}: creating new live endpoint for {}", this, sender);
+			log.info("{}: EP creating new live for {}", this, sender);
 
 			incoming = new WebRtcEndpoint.Builder(pipeline).build();
 
@@ -366,7 +410,7 @@ public class UserSession implements Closeable {
 							session.sendMessage(new TextMessage(response.toString()));
 						}
 					} catch (IOException e) {
-						log.debug(e.getMessage());
+						log.error("{}: {}", this, e.getMessage());
 					}
 				}
 			});
@@ -374,7 +418,7 @@ public class UserSession implements Closeable {
 			incomingLiveMedia.put(sender.getName(), incoming);
 		}
 
-		log.debug("{}: obtained live EP for {}", this, sender);
+		log.info("{}: EP success live EP for {}", this, sender);
 		return incoming;
 	}
 
@@ -385,10 +429,10 @@ public class UserSession implements Closeable {
 
 	
 	public void cancelVideoFrom(final String senderName) {
-		log.debug("{}: canceling video reception from {}", this, senderName);
+		log.info("{}: canceling video reception from {}", this, senderName);
 		final WebRtcEndpoint incoming = incomingMedia.remove(senderName);
 
-		log.debug("{}: removing endpoint for {}", this, senderName);
+		log.info("{}: EP removing for {}", this, senderName);
 		
 		if (incoming == null) {
 			log.error("{}: incoming for {} is NULL!", this, senderName);
@@ -399,12 +443,12 @@ public class UserSession implements Closeable {
 		incoming.release(new Continuation<Void>() {
 			@Override
 			public void onSuccess(Void result) throws Exception {
-				log.trace("{}: Released successfully incoming EP for {}", this, senderName);
+				log.info("{}: Released successfully incoming EP for {}", this, senderName);
 			}
 
 			@Override
 			public void onError(Throwable cause) throws Exception {
-				log.warn("{}: Could not release incoming EP for {}", this, senderName);
+				log.error("{}: Could not release incoming EP for {}", this, senderName);
 			}
 		});
 	}
@@ -424,7 +468,7 @@ public class UserSession implements Closeable {
 	
 	@Override
 	public void close() throws IOException {
-		log.debug("{}: releasing resources", this);
+		log.info("{}: releasing resources", this);
 		releaseIncoming();
 		releaseLiveIncoming();
 		
@@ -432,12 +476,12 @@ public class UserSession implements Closeable {
 
 			@Override
 			public void onSuccess(Void result) throws Exception {
-				log.trace("{}: released outgoing EP", this);
+				log.info("{}: released outgoing EP", this);
 			}
 
 			@Override
 			public void onError(Throwable cause) throws Exception {
-				log.warn("{}: could not release outgoing EP", this);
+				log.error("{}: could not release outgoing EP", this);
 			}
 		});
 
@@ -445,12 +489,12 @@ public class UserSession implements Closeable {
 
 			@Override
 			public void onSuccess(Void result) throws Exception {
-				log.trace("{}: released next video EP", this);
+				log.info("{}: released next video EP", this);
 			}
 
 			@Override
 			public void onError(Throwable cause) throws Exception {
-				log.warn("{}: could not release next video EP", this);
+				log.error("{}: could not release next video EP", this);
 			}
 		});
 
@@ -463,7 +507,7 @@ public class UserSession implements Closeable {
 	public void releaseIncoming() {	
 		for (final String remoteParticipantName : incomingMedia.keySet()) {
 
-			log.trace("{}: released incoming EP for {}", this, remoteParticipantName);
+			log.info("{}: released incoming EP for {}", this, remoteParticipantName);
 
 			final WebRtcEndpoint ep = incomingMedia.get(remoteParticipantName);
 
@@ -471,12 +515,12 @@ public class UserSession implements Closeable {
 
 				@Override
 				public void onSuccess(Void result) throws Exception {
-					log.trace("{}: released successfully incoming EP for {}", this, remoteParticipantName);
+					log.info("{}: released successfully incoming EP for {}", this, remoteParticipantName);
 				}
 
 				@Override
 				public void onError(Throwable cause) throws Exception {
-					log.warn("{}: could not release incoming EP for {}", this,
+					log.error("{}: could not release incoming EP for {}", this,
 							remoteParticipantName);
 				}
 			});
@@ -492,7 +536,7 @@ public class UserSession implements Closeable {
 	public void releaseLiveIncoming() {
 		for (final String remoteLiveParticipantName : incomingLiveMedia.keySet()) {
 
-			log.trace("{}: released incoming EP for {}", this, remoteLiveParticipantName);
+			log.info("{}: released incoming EP for {}", this, remoteLiveParticipantName);
 
 			final WebRtcEndpoint ep = incomingLiveMedia.get(remoteLiveParticipantName);
 
@@ -500,12 +544,12 @@ public class UserSession implements Closeable {
 
 				@Override
 				public void onSuccess(Void result) throws Exception {
-					log.trace("{}: released successfully incoming EP for {}", this, remoteLiveParticipantName);
+					log.info("{}: released successfully incoming EP for {}", this, remoteLiveParticipantName);
 				}
 
 				@Override
 				public void onError(Throwable cause) throws Exception {
-					log.warn("{}: could not release incoming EP for {}", this,
+					log.error("{}: could not release incoming EP for {}", this,
 							remoteLiveParticipantName);
 				}
 			});
@@ -544,7 +588,7 @@ public class UserSession implements Closeable {
 	 * @param message error description
 	 */
 	public void sendError(String message) throws IOException {
-		log.info("{}: sending error message: {}", this, message);
+		log.warn("{}: sending error message: {}", this, message);
 		JsonObject m = new JsonObject();
 		m.addProperty("id", "error");
 		m.addProperty("message", message);
@@ -562,6 +606,8 @@ public class UserSession implements Closeable {
 			WebRtcEndpoint webRtc = incomingMedia.get(name);
 			if (webRtc != null) {
 				webRtc.addIceCandidate(candidate);
+			} else {
+				log.error("{}: adding ice candidate for {}", this, name);
 			}
 		}
 	}
@@ -577,6 +623,8 @@ public class UserSession implements Closeable {
 			WebRtcEndpoint webRtc = incomingLiveMedia.get(name);
 			if (webRtc != null) {
 				webRtc.addIceCandidate(candidate);
+			} else {
+				log.error("{}: adding live ice candidate for {}", this, name);
 			}
 		}
 	}

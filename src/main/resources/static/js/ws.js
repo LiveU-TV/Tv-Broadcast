@@ -403,7 +403,7 @@ function makeLive(msg) {
 			}
 		}
 	};
-	
+
 	//create self live
 	var live = new LiveVideo(name);
 	

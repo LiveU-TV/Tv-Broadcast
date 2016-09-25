@@ -202,7 +202,10 @@ body {
 }
 
 .live {
-	position: relative;
+	position: absolute;
+	top: 67px;
+	left: 480px;
+	z-index: 100px;
 	border-radius: 4px;
 	/* border: 2px groove; */
 	margin-left: 5;
@@ -237,7 +240,10 @@ body {
 }
 
 .live.me {
-	width: 260px; ! important;
+	top: 50px;
+	left: 50px;
+	z-index: 80px;
+	width: 560px; ! important;
 	background-color: White;
 }
 
@@ -247,7 +253,7 @@ body {
 }
 
 .live.me video {
-	width: 255px; ! important;
+	width: 555px; ! important;
 	height: auto; ! important;
 }
 
@@ -330,6 +336,12 @@ body {
 				</table>
 			</div>
 
+			<!-- Footer -->
+			<div id="footer_1">
+				<h4 class="local-section" align="center">Copyright &copy; 2016 LiveU</h4>
+			</div>
+			<!-- EOF Footer -->
+
 		</div>
 		<!-- EOF page 1 -->
 
@@ -397,6 +409,12 @@ body {
 					</tr>
 				</table>
 			</div>
+
+			<!-- Footer -->
+			<div id="footer_2">
+				<h4 class="local-section" align="center">Copyright &copy; 2016 LiveU</h4>
+			</div>
+			<!-- EOF Footer -->
 			
 		</div>
 		<!-- EOF page 2 -->
@@ -412,7 +430,7 @@ body {
 				<div id="lives"></div>
 				<div id="central"></div>
 			</div>
-			<div id="panel_tr_btn" style="position: relative; float: left; width: 100%;">
+			<div id="panel_tr_btn" style="position: absolute; top: 520px; float: left; width: 100%;">
 				<input id="btnBackRoom" style="position: relative; margin: 20px;" type="button" Value="Back to room" onclick="backRoomPage()">
 				<input id="btnConnectCentral" style="position: relative; margin: 20px;" type="button" Value="Connect to Central" onclick="connectCentral()">
 			</div>
@@ -423,13 +441,6 @@ body {
 		
 	</div>
 	<!-- EOF main_area -->
-
-	<!-- Footer -->
-	<div id="main_footer">
-		<h4 class="local-section" align="center">Copyright &copy; 2016
-			LiveU</h4>
-	</div>
-	<!-- EOF Footer -->
 
 
 	<!-- modal panel section -->

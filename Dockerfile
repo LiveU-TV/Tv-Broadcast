@@ -8,4 +8,4 @@ ADD . /home/nubomedia
 RUN sudo chown -R nubomedia /home/nubomedia
 RUN cd /home/nubomedia && mvn compile
 
-ENTRYPOINT cd /home/nubomedia && mvn exec:java
+ENTRYPOINT cd /home/nubomedia && mvn exec:java -Dtest.mode=true -Dds=STD:FILE -Dds.file=/home/nubomedia/tvbroadcast.ds

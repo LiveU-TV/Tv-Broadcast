@@ -38,6 +38,7 @@ public class RoomManager {
 	private TvbConnector tvbStudio;
 
 	public RoomManager() throws Exception {
+
 		try {
 			pipeline = kurento.createMediaPipeline();
 			
@@ -50,7 +51,6 @@ public class RoomManager {
 			}
 		} catch (Exception e) {
 			log.error("error creating RoomManager: {}", e);
-			e.printStackTrace(System.err); // how to print it 2 ds?
 			throw e;
 		}
 		ds.print(0, "RoomManager object created");
@@ -80,12 +80,11 @@ public class RoomManager {
 	 */
 	public boolean addRoom(String roomName, String roomDescr, String roomColor) {
 		if (this.rooms.containsKey(roomName)) {
-			log.debug("Room {} already exists", roomName);
+			log.warn("Room {} already exists", roomName);
 			return false;
 		}
 		log.info("Adding room {} descr {} color {}", roomName, roomDescr, roomColor);
 		rooms.put(roomName, new Room(roomName, roomDescr, roomColor, pipeline));
-		log.info("Room {} added", roomName);
 		return true;
 	}
 
